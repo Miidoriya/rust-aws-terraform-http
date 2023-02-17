@@ -67,6 +67,7 @@ dependencies = [
  "lambda_runtime",
  "reqwest",
  "scraper",
+ "serde",
  "serde_json",
  "tokio",
  "tracing",
