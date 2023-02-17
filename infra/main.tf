@@ -5,6 +5,7 @@ module "basic_lambda_function" {
   description   = "A basic lambda function"
   handler       = "bootstrap"
   runtime       = "provided.al2"
+  architectures = ["arm64"]
 
   create_package         = false
   local_existing_package = "../release/index.zip"

@@ -23,8 +23,9 @@ async fn main() -> Result<(), Error> {
 }
 
 async fn func(event: LambdaEvent<Value>) -> Result<Value, Error> {
-    let (_event, _context) = event.into_parts();
-    let response = get_response(URL).await?;
+    let (event, _context) = event.into_parts();
+    let url = event["url"].as_str().unwrap_or(URL);
+    let response = get_response(url).await?;
     let name = parse_name(&response).unwrap();
     let writer = parse_comic_info_field(&response, "Writer").unwrap();
     let artist = parse_comic_info_field(&response, "Artist").unwrap();
