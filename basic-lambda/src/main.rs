@@ -1,31 +1,45 @@
-use lambda_http::{run, service_fn, Body, Error, Request, RequestExt, Response};
+use lambda_runtime::{service_fn, LambdaEvent, Error};
+use serde_json::{json, Value};
 
-/// This is the main body for the function.
-/// Write your code inside it.
-/// There are some code example in the following URLs:
-/// - https://github.com/awslabs/aws-lambda-rust-runtime/tree/main/examples
-async fn function_handler(event: Request) -> Result<Response<Body>, Error> {
-    // Extract some useful information from the request
-
-    // Return something that implements IntoResponse.
-    // It will be serialized to the right response event automatically by the runtime
-    let resp = Response::builder()
-        .status(200)
-        .header("content-type", "text/html")
-        .body("Hello AWS Lambda HTTP request".into())
-        .map_err(Box::new)?;
-    Ok(resp)
-}
+const URL: &str = "https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/8";
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        // disable printing the name of the module in every log line.
-        .with_target(false)
-        // disabling time is handy because CloudWatch will add the ingestion time.
-        .without_time()
-        .init();
-
-    run(service_fn(function_handler)).await
+    let func = service_fn(func);
+    lambda_runtime::run(func).await?;
+    Ok(())
 }
+
+async fn func(event: LambdaEvent<Value>) -> Result<Value, Error> {
+    let (event, _context) = event.into_parts();
+    let response = get_response(URL).await?;
+    let name = parse_name(&response);
+    let name = match name {
+        Ok(name) => name,
+        Err(_) => "Some error retrieving name".to_string(),
+    };
+    Ok(json!({
+        "statusCode": 200,
+        "body": name
+    }))
+}
+
+async fn get_response(url: &str) -> Result<String, reqwest::Error>{
+    let response = reqwest::get(url)
+    .await?
+    .text()
+    .await?;
+    Ok(response)
+}
+
+fn parse_name(response: &str) -> Result<String, scraper::error::SelectorErrorKind> {
+    let response = scraper::Html::parse_document(&response);
+    let name_selector =
+        scraper::Selector::parse("div.series-buttons a.series")?;
+    let name = match response.select(&name_selector).next() {
+        Some(name) => name.value().attr("href").unwrap().to_string(),
+        None => "N/A".to_string(),
+    };
+    Ok(name)
+}
+
