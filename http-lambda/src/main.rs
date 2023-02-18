@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use lambda_http::{run, service_fn, Body, Error, Request, Response};
+use regex::Regex;
 
 #[derive(Serialize, Deserialize)]
 struct ComicInfo {
@@ -149,13 +150,18 @@ fn parse_review_count<'a>(
     response: &'a str,
     field: &'a str,
 ) -> Result<Option<String>, scraper::error::SelectorErrorKind<'a>> {
+    let re = Regex::new(r"(?x)(?P<count>\d+)").unwrap();
     let response = scraper::Html::parse_document(response);
     let name_selector = scraper::Selector::parse(".divider div.container ul.tabs li")?;
     let field = response
         .select(&name_selector)
         .find(|n| Arc::new(n.text().collect::<Vec<_>>().join("")).contains(field))
         .map(|name| 
-            name.text().collect::<Vec<_>>().last().unwrap().to_string());
+            {
+                let val = name.text().collect::<Vec<_>>().last().unwrap().to_string();
+                let caps = re.captures(&val).unwrap();
+                caps["count"].to_string()
+            });
     Ok(field)
 }
 

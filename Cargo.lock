@@ -499,6 +499,7 @@ dependencies = [
  "lambda_http",
  "lambda_runtime",
  "openssl",
+ "regex",
  "reqwest",
  "scraper",
  "serde",
