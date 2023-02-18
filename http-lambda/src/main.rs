@@ -164,10 +164,3 @@ fn parse_review_count<'a>(
             });
     Ok(field)
 }
-
-//{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/11"}\
-
-// curl -X POST \
-//     'http://localhost:9000/lambda-url/http-lambda/' \
-//     -H 'Content-Type: application/json' \
-//     -d '{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/11"}'
