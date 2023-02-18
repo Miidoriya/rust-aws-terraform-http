@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "basic-lambda"
+    "http-lambda"
 ]
 
 exclude = ["examples"]

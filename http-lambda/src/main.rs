@@ -1,7 +1,7 @@
-use lambda_runtime::{service_fn, Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
+use lambda_http::{run, service_fn, Body, Error, Request, Response};
 
 #[derive(Serialize, Deserialize)]
 struct ComicInfo {
@@ -26,7 +26,7 @@ struct IdName {
     name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct LambdaRequest {
     url: String,
 }
@@ -37,26 +37,27 @@ const URL: &str =
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     env_logger::init();
-    let func = service_fn(func);
-    lambda_runtime::run(func).await?;
-    Ok(())
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        // disabling time is handy because CloudWatch will add the ingestion time.
+        .without_time()
+        .init();
+
+    run(service_fn(func)).await
 }
 
-async fn func(event: LambdaEvent<Value>) -> Result<Value, Error> {
-    let (event, _context) = event.into_parts();
-    println!("body.url: {}", event["body"]["url"]);
-    println!("body: {}", event["body"]);
-    println!("event: {}", event);
-    let body: Option<LambdaRequest> = event["body"].as_str().map(|body| serde_json::from_str(body).unwrap());
-    let url: String = match body {
-        Some(body) => {
-            let body: LambdaRequest = body;
-            body.url
-        }
-        None => {
-            URL.to_string()
-        }
+async fn func(event: Request) -> Result<Value, Error> {
+    println!("event: {:?}", event.body());
+    let body: Option<LambdaRequest> = match event.body() {
+        Body::Text(s) => Some(serde_json::from_str(s)?),
+        _ => None,
     };
+    println!("body: {:?}", &body);
+    let url = match body {
+        Some(b) => b.url,
+        None => URL.to_string(),
+    };
+    println!("url: {:?}", &url);
     let response = get_response(&url).await?;
     let id_name = parse_name(&response).unwrap();
     let id = id_name.id;
@@ -142,6 +143,6 @@ fn parse_comic_info_field<'a>(
 //{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/11"}\
 
 // curl -X POST \
-//     'https://dfz3qumzmo4ryzxhvb72q5ryl40eaaea.lambda-url.eu-west-2.on.aws/' \
+//     'http://localhost:9000/lambda-url/http-lambda/' \
 //     -H 'Content-Type: application/json' \
 //     -d '{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/11"}'
