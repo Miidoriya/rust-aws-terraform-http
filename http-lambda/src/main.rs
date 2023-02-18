@@ -46,7 +46,7 @@ async fn main() -> Result<(), Error> {
     run(service_fn(func)).await
 }
 
-async fn func(event: Request) -> Result<Value, Error> {
+async fn func(event: Request) -> Result<Response<Body>, Error> {
     let body: Option<LambdaRequest> = match event.body() {
         Body::Text(s) => Some(serde_json::from_str(s)?),
         _ => None,
@@ -88,13 +88,13 @@ async fn func(event: Request) -> Result<Value, Error> {
         release_date,
         cover_price,
     };
-    Ok(json!({
-        "statusCode": 200,
-        "headers": {
-            "content-type": "application/json"
-        },
-        "body": comic_info,
-    }))
+    let body = serde_json::to_string(&comic_info)?;
+    let resp = Response::builder()
+        .status(200)
+        .header("content-type", "application/json")
+        .body(Body::from(body))
+        .map_err(Box::new)?;
+    Ok(resp)
 }
 
 async fn get_response(url: &str) -> Result<String, reqwest::Error> {
