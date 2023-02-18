@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use std::sync::Arc;
 use lambda_http::{run, service_fn, Body, Error, Request, Response};
 
@@ -19,6 +18,11 @@ struct ComicInfo {
     release_date: Option<String>,
      #[serde(skip_serializing_if = "Option::is_none")]
     cover_price: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    critic_review_count: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    user_review_count: Option<String>,
+
 }
 
 struct IdName {
@@ -79,6 +83,8 @@ async fn func(event: Request) -> Result<Response<Body>, Error> {
     let publisher = parse_comic_info_field(&response, "Publisher").unwrap();
     let release_date = parse_comic_info_field(&response, "Release Date").unwrap();
     let cover_price = parse_comic_info_field(&response, "Cover Price").unwrap();
+    let critic_review_count = parse_review_count(&response, "Critic Reviews").unwrap();
+    let user_review_count = parse_review_count(&response, "User Reviews").unwrap();
     let comic_info = ComicInfo {
         id,
         name,
@@ -87,6 +93,8 @@ async fn func(event: Request) -> Result<Response<Body>, Error> {
         publisher,
         release_date,
         cover_price,
+        critic_review_count,
+        user_review_count,
     };
     let body = serde_json::to_string(&comic_info)?;
     let resp = Response::builder()
@@ -134,6 +142,20 @@ fn parse_comic_info_field<'a>(
         .select(&name_selector)
         .find(|n| Arc::new(n.text().collect::<Vec<_>>().join("")).contains(field))
         .map(|name| name.text().collect::<Vec<_>>().last().unwrap().to_string());
+    Ok(field)
+}
+
+fn parse_review_count<'a>(
+    response: &'a str,
+    field: &'a str,
+) -> Result<Option<String>, scraper::error::SelectorErrorKind<'a>> {
+    let response = scraper::Html::parse_document(response);
+    let name_selector = scraper::Selector::parse(".divider div.container ul.tabs li")?;
+    let field = response
+        .select(&name_selector)
+        .find(|n| Arc::new(n.text().collect::<Vec<_>>().join("")).contains(field))
+        .map(|name| 
+            name.text().collect::<Vec<_>>().last().unwrap().to_string());
     Ok(field)
 }
 
