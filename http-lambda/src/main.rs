@@ -47,17 +47,14 @@ async fn main() -> Result<(), Error> {
 }
 
 async fn func(event: Request) -> Result<Value, Error> {
-    println!("event: {:?}", event.body());
     let body: Option<LambdaRequest> = match event.body() {
         Body::Text(s) => Some(serde_json::from_str(s)?),
         _ => None,
     };
-    println!("body: {:?}", &body);
     let url = match body {
         Some(b) => b.url,
         None => URL.to_string(),
     };
-    println!("url: {:?}", &url);
     let response = get_response(&url).await?;
     let id_name = parse_name(&response).unwrap();
     let id = id_name.id;
