@@ -16,3 +16,12 @@ module "basic_lambda_function" {
     Name = "basic-lambda-function"
   }
 }
+
+resource "aws_lambda_function_url" "test_latest" {
+  function_name      = module.basic_lambda_function.lambda_function_name
+  authorization_type = "NONE"
+}
+
+output "name" {
+  value = aws_lambda_function_url.test_latest.function_url
+}
