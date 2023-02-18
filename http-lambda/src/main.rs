@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use lambda_http::{run, service_fn, Body, Error, Request, Response};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Serialize, Deserialize)]
 struct ComicInfo {
@@ -17,13 +17,16 @@ struct ComicInfo {
     publisher: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     release_date: Option<String>,
-     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     cover_price: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     critic_review_count: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     user_review_count: Option<String>,
-
+    #[serde(skip_serializing_if = "Option::is_none")]
+    critic_review_score: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    user_review_score: Option<String>,
 }
 
 struct IdName {
@@ -86,6 +89,8 @@ async fn func(event: Request) -> Result<Response<Body>, Error> {
     let cover_price = parse_comic_info_field(&response, "Cover Price").unwrap();
     let critic_review_count = parse_review_count(&response, "Critic Reviews").unwrap();
     let user_review_count = parse_review_count(&response, "User Reviews").unwrap();
+    let critic_review_score = parse_review_score(&response, "Critic Rating").unwrap();
+    let user_review_score = parse_review_score(&response, "User Rating").unwrap();
     let comic_info = ComicInfo {
         id,
         name,
@@ -96,6 +101,8 @@ async fn func(event: Request) -> Result<Response<Body>, Error> {
         cover_price,
         critic_review_count,
         user_review_count,
+        critic_review_score,
+        user_review_score,
     };
     let body = serde_json::to_string(&comic_info)?;
     let resp = Response::builder()
@@ -156,11 +163,29 @@ fn parse_review_count<'a>(
     let field = response
         .select(&name_selector)
         .find(|n| Arc::new(n.text().collect::<Vec<_>>().join("")).contains(field))
-        .map(|name| 
-            {
-                let val = name.text().collect::<Vec<_>>().last().unwrap().to_string();
-                let caps = re.captures(&val).unwrap();
-                caps["count"].to_string()
-            });
+        .map(|name| {
+            let val = name.text().collect::<Vec<_>>().last().unwrap().to_string();
+            let caps = re.captures(&val).unwrap();
+            caps["count"].to_string()
+        });
+    Ok(field)
+}
+
+fn parse_review_score<'a>(
+    response: &'a str,
+    field: &'a str,
+) -> Result<Option<String>, scraper::error::SelectorErrorKind<'a>> {
+    let re = Regex::new(r"(?x)(?P<score>\d+\.\d|\d+)").unwrap();
+    let response = scraper::Html::parse_document(response);
+    let name_selector = scraper::Selector::parse(".issue div.container div.right div.right div")?;
+    let field = response
+        .select(&name_selector)
+        .find(|n| Arc::new(n.text().collect::<Vec<_>>().join("")).contains(field))
+        .map(|name| {
+            println!("{:?}", name.text().collect::<Vec<_>>().join(""));
+            let val = name.text().collect::<Vec<_>>().join("");
+            let caps = re.captures(&val).unwrap();
+            caps["score"].to_string()
+        });
     Ok(field)
 }
