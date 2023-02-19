@@ -3,6 +3,7 @@ if [ -d "release" ]; then
 fi
 
 mkdir release
-cd target/lambda/basic-lambda
+cargo lambda build --release --arm64
+cd target/lambda/http-lambda
 zip index.zip bootstrap
 mv index.zip ../../../release
