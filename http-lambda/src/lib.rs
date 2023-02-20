@@ -178,8 +178,11 @@ fn parse_review_score<'a>(
         .find(|n| Arc::new(n.text().collect::<Vec<_>>().join("")).contains(field))
         .map(|name| {
             let val = name.text().collect::<Vec<_>>().join("");
-            let caps = re.captures(&val).unwrap();
-            caps["score"].to_string()
+            let caps = re.captures(&val);
+            match caps {
+                Some(caps) => caps["score"].to_string(),
+                None => "0".to_string(),
+            }
         });
     Ok(field)
 }
