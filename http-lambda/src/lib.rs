@@ -2,8 +2,9 @@ use lambda_http::{Body, Error, Request, Response};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use futures::stream::{StreamExt, FuturesUnordered};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct ComicInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<String>,
@@ -29,6 +30,7 @@ struct ComicInfo {
     user_review_score: Option<String>,
 }
 
+#[derive(Debug)]
 struct IdName {
     id: Option<String>,
     name: Option<String>,
@@ -38,80 +40,130 @@ struct IdName {
 struct LambdaRequest {
     url: String,
 }
-
+const CORE_URL: &str = "https://comicbookroundup.com";
 const URL: &str =
     "https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/8";
 
 pub async fn get_comic_issue_json_response(request: Request) -> Result<Response<Body>, Error> {
-    let res = parse_comic_issue_urls("https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)").await?;
-    let body = serde_json::to_string(&res).unwrap();
+    let res = parse_comic_issue_urls(
+        "https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)",
+    ).await?;
+    let res2 = res.into_iter().map(|url| async move {
+        let string_as_str = match url {
+            Some(s) => s,
+            None => URL.to_string(),
+        };
+        let url = format!("{}{}", CORE_URL, string_as_str);
+        let response = get_response(&url).await.unwrap();
+        let id_name = parse_name(&response).unwrap();
+        let id = id_name.id;
+        let name = id_name.name;
+        let writers: Option<Vec<String>> = parse_comic_info_field(&response, "Writer")
+            .unwrap()
+            .map(|writers| {
+                writers
+                    .split(", ")
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+            });
+        let artists = parse_comic_info_field(&response, "Artist")
+            .unwrap()
+            .map(|artists| {
+                artists
+                    .split(", ")
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+            });
+        let publisher = parse_comic_info_field(&response, "Publisher").unwrap();
+        let release_date = parse_comic_info_field(&response, "Release Date").unwrap();
+        let cover_price = parse_comic_info_field(&response, "Cover Price").unwrap();
+        let critic_review_count = parse_review_count(&response, "Critic Reviews").unwrap();
+        let user_review_count = parse_review_count(&response, "User Reviews").unwrap();
+        let critic_review_score = parse_review_score(&response, "Critic Rating").unwrap();
+        let user_review_score = parse_review_score(&response, "User Rating").unwrap();
+        
+        ComicInfo {
+            id,
+            name,
+            writers,
+            artists,
+            publisher,
+            release_date,
+            cover_price,
+            critic_review_count,
+            user_review_count,
+            critic_review_score,
+            user_review_score,
+        }
+    });
+    let comic_infos: Vec<ComicInfo> = futures::future::join_all(res2).await.into_iter().collect();
+    println!("comic info {:#?}", comic_infos);
     Ok(Response::builder()
         .status(200)
-        .header("Content-Type", "application/json")
-        .body(body.into())
+        .body(Body::from("Hello, World!"))
         .unwrap())
-    // let url = parse_url_from_request(&request);
-    // let response = get_response(&url).await?;
-    // let id_name = parse_name(&response).unwrap();
-    // let id = id_name.id;
-    // let name = id_name.name;
-    // let writers: Option<Vec<String>> =
-    //     parse_comic_info_field(&response, "Writer")
-    //         .unwrap()
-    //         .map(|writers| {
-    //             writers
-    //                 .split(", ")
-    //                 .map(|s| s.to_string())
-    //                 .collect::<Vec<_>>()
-    //         });
-    // let artists = parse_comic_info_field(&response, "Artist")
-    //     .unwrap()
-    //     .map(|artists| {
-    //         artists
-    //             .split(", ")
-    //             .map(|s| s.to_string())
-    //             .collect::<Vec<_>>()
-    //     });
-    // let publisher = parse_comic_info_field(&response, "Publisher").unwrap();
-    // let release_date = parse_comic_info_field(&response, "Release Date").unwrap();
-    // let cover_price = parse_comic_info_field(&response, "Cover Price").unwrap();
-    // let critic_review_count = parse_review_count(&response, "Critic Reviews").unwrap();
-    // let user_review_count = parse_review_count(&response, "User Reviews").unwrap();
-    // let critic_review_score = parse_review_score(&response, "Critic Rating").unwrap();
-    // let user_review_score = parse_review_score(&response, "User Rating").unwrap();
-    // let comic_info = ComicInfo {
-    //     id,
-    //     name,
-    //     writers,
-    //     artists,
-    //     publisher,
-    //     release_date,
-    //     cover_price,
-    //     critic_review_count,
-    //     user_review_count,
-    //     critic_review_score,
-    //     user_review_score,
-    // };
-    // let body = serde_json::to_string(&comic_info)?;
-    // let resp = Response::builder()
-    //     .status(200)
-    //     .header("content-type", "application/json")
-    //     .body(Body::from(body))
-    //     .map_err(Box::new)?;
-    // Ok(resp)
 }
+// let url = parse_url_from_request(&request);
+// let response = get_response(&url).await?;
+// let id_name = parse_name(&response).unwrap();
+// let id = id_name.id;
+// let name = id_name.name;
+// let writers: Option<Vec<String>> =
+//     parse_comic_info_field(&response, "Writer")
+//         .unwrap()
+//         .map(|writers| {
+//             writers
+//                 .split(", ")
+//                 .map(|s| s.to_string())
+//                 .collect::<Vec<_>>()
+//         });
+// let artists = parse_comic_info_field(&response, "Artist")
+//     .unwrap()
+//     .map(|artists| {
+//         artists
+//             .split(", ")
+//             .map(|s| s.to_string())
+//             .collect::<Vec<_>>()
+//     });
+// let publisher = parse_comic_info_field(&response, "Publisher").unwrap();
+// let release_date = parse_comic_info_field(&response, "Release Date").unwrap();
+// let cover_price = parse_comic_info_field(&response, "Cover Price").unwrap();
+// let critic_review_count = parse_review_count(&response, "Critic Reviews").unwrap();
+// let user_review_count = parse_review_count(&response, "User Reviews").unwrap();
+// let critic_review_score = parse_review_score(&response, "Critic Rating").unwrap();
+// let user_review_score = parse_review_score(&response, "User Rating").unwrap();
+// let comic_info = ComicInfo {
+//     id,
+//     name,
+//     writers,
+//     artists,
+//     publisher,
+//     release_date,
+//     cover_price,
+//     critic_review_count,
+//     user_review_count,
+//     critic_review_score,
+//     user_review_score,
+// };
+// let body = serde_json::to_string(&comic_info)?;
+// let resp = Response::builder()
+//     .status(200)
+//     .header("content-type", "application/json")
+//     .body(Body::from(body))
+//     .map_err(Box::new)?;
+// Ok(resp)
 
 async fn parse_comic_issue_urls(url: &str) -> Result<Vec<Option<String>>, reqwest::Error> {
     let response_str = reqwest::get(url).await?.text().await?;
     let html_resp = scraper::Html::parse_document(&response_str);
-    let id_selector = scraper::Selector::parse("div.section > table > tbody > tr > td.issue > a").unwrap();
+    let id_selector =
+        scraper::Selector::parse("div.section > table > tbody > tr > td.issue > a").unwrap();
     let urls = html_resp
         .select(&id_selector)
         .map(|e| e.value().attr("href").map(str::to_owned))
         .collect();
     Ok(urls)
 }
-
 
 pub fn parse_url_from_request(request: &Request) -> String {
     let body_str = match request.body() {
@@ -128,6 +180,7 @@ pub fn parse_url_from_request(request: &Request) -> String {
 }
 
 async fn get_response(url: &str) -> Result<String, reqwest::Error> {
+    println!("url: {}", url);
     let response = reqwest::get(url).await?.text().await?;
     Ok(response)
 }
@@ -151,6 +204,7 @@ fn parse_name(response: &str) -> Result<IdName, scraper::error::SelectorErrorKin
             .to_string()
     });
     let id_name = IdName { id, name };
+    println!("id_name {:#?}", id_name);
     Ok(id_name)
 }
 

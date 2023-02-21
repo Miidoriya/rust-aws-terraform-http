@@ -496,6 +496,7 @@ name = "http-lambda"
 version = "0.1.0"
 dependencies = [
  "env_logger",
+ "futures",
  "lambda_http",
  "lambda_runtime",
  "openssl",
