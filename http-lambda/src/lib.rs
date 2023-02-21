@@ -43,56 +43,75 @@ const URL: &str =
     "https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/8";
 
 pub async fn get_comic_issue_json_response(request: Request) -> Result<Response<Body>, Error> {
-    let url = parse_url_from_request(&request);
-    let response = get_response(&url).await?;
-    let id_name = parse_name(&response).unwrap();
-    let id = id_name.id;
-    let name = id_name.name;
-    let writers: Option<Vec<String>> =
-        parse_comic_info_field(&response, "Writer")
-            .unwrap()
-            .map(|writers| {
-                writers
-                    .split(", ")
-                    .map(|s| s.to_string())
-                    .collect::<Vec<_>>()
-            });
-    let artists = parse_comic_info_field(&response, "Artist")
-        .unwrap()
-        .map(|artists| {
-            artists
-                .split(", ")
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-        });
-    let publisher = parse_comic_info_field(&response, "Publisher").unwrap();
-    let release_date = parse_comic_info_field(&response, "Release Date").unwrap();
-    let cover_price = parse_comic_info_field(&response, "Cover Price").unwrap();
-    let critic_review_count = parse_review_count(&response, "Critic Reviews").unwrap();
-    let user_review_count = parse_review_count(&response, "User Reviews").unwrap();
-    let critic_review_score = parse_review_score(&response, "Critic Rating").unwrap();
-    let user_review_score = parse_review_score(&response, "User Rating").unwrap();
-    let comic_info = ComicInfo {
-        id,
-        name,
-        writers,
-        artists,
-        publisher,
-        release_date,
-        cover_price,
-        critic_review_count,
-        user_review_count,
-        critic_review_score,
-        user_review_score,
-    };
-    let body = serde_json::to_string(&comic_info)?;
-    let resp = Response::builder()
+    let res = parse_comic_issue_urls("https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)").await?;
+    let body = serde_json::to_string(&res).unwrap();
+    Ok(Response::builder()
         .status(200)
-        .header("content-type", "application/json")
-        .body(Body::from(body))
-        .map_err(Box::new)?;
-    Ok(resp)
+        .header("Content-Type", "application/json")
+        .body(body.into())
+        .unwrap())
+    // let url = parse_url_from_request(&request);
+    // let response = get_response(&url).await?;
+    // let id_name = parse_name(&response).unwrap();
+    // let id = id_name.id;
+    // let name = id_name.name;
+    // let writers: Option<Vec<String>> =
+    //     parse_comic_info_field(&response, "Writer")
+    //         .unwrap()
+    //         .map(|writers| {
+    //             writers
+    //                 .split(", ")
+    //                 .map(|s| s.to_string())
+    //                 .collect::<Vec<_>>()
+    //         });
+    // let artists = parse_comic_info_field(&response, "Artist")
+    //     .unwrap()
+    //     .map(|artists| {
+    //         artists
+    //             .split(", ")
+    //             .map(|s| s.to_string())
+    //             .collect::<Vec<_>>()
+    //     });
+    // let publisher = parse_comic_info_field(&response, "Publisher").unwrap();
+    // let release_date = parse_comic_info_field(&response, "Release Date").unwrap();
+    // let cover_price = parse_comic_info_field(&response, "Cover Price").unwrap();
+    // let critic_review_count = parse_review_count(&response, "Critic Reviews").unwrap();
+    // let user_review_count = parse_review_count(&response, "User Reviews").unwrap();
+    // let critic_review_score = parse_review_score(&response, "Critic Rating").unwrap();
+    // let user_review_score = parse_review_score(&response, "User Rating").unwrap();
+    // let comic_info = ComicInfo {
+    //     id,
+    //     name,
+    //     writers,
+    //     artists,
+    //     publisher,
+    //     release_date,
+    //     cover_price,
+    //     critic_review_count,
+    //     user_review_count,
+    //     critic_review_score,
+    //     user_review_score,
+    // };
+    // let body = serde_json::to_string(&comic_info)?;
+    // let resp = Response::builder()
+    //     .status(200)
+    //     .header("content-type", "application/json")
+    //     .body(Body::from(body))
+    //     .map_err(Box::new)?;
+    // Ok(resp)
 }
+
+async fn parse_comic_issue_urls(url: &str) -> Result<Vec<Option<String>>, reqwest::Error> {
+    let response_str = reqwest::get(url).await?.text().await?;
+    let html_resp = scraper::Html::parse_document(&response_str);
+    let id_selector = scraper::Selector::parse("div.section > table > tbody > tr > td.issue > a").unwrap();
+    let urls = html_resp
+        .select(&id_selector)
+        .map(|e| e.value().attr("href").map(str::to_owned))
+        .collect();
+    Ok(urls)
+}
+
 
 pub fn parse_url_from_request(request: &Request) -> String {
     let body_str = match request.body() {
