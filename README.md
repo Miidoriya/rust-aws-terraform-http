@@ -25,3 +25,7 @@ curl --location 'http://localhost:9000/lambda-url/http-lambda/' \
 --header 'Content-Type: application/json' \
 --data '{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/1"}' | json_pp
 ```
+
+
+Note:
+- Using `cargo lambda watch` doesn't work well with the current implementation (Works fine when deployed)
