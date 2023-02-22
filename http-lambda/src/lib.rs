@@ -245,7 +245,3 @@ fn parse_review_score<'a>(
         });
     Ok(field)
 }
-
-// curl --location 'https://vbh62vjbexlz5igj2prgw5gjoi0uazdq.lambda-url.eu-west-2.on.aws/' \
-// --header 'Content-Type: application/json' \
-// --data '{"url":"https://comicbookroundup.com/comic-books/reviews/dc-comics/batman-(2016)"}' | json_pp
