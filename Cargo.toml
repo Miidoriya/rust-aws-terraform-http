@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "http-lambda"
+    "issue-details",
+    "issue-urls"
 ]
 
 exclude = ["examples"]

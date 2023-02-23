@@ -1,5 +1,5 @@
 use lambda_http::{run, service_fn, Body, Error, Request, Response};
-use http_lambda::{get_comic_issue_json_response};
+use issue_details::{get_comic_issue_json_response};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {

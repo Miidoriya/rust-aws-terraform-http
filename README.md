@@ -26,6 +26,12 @@ curl --location 'http://localhost:9000/lambda-url/http-lambda/' \
 --data '{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/1"}' | json_pp
 ```
 
+```
+curl --location 'http://localhost:9000/lambda-url/issue-urls/' \
+--header 'Content-Type: application/json' \
+--data '{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)"}' | json_pp
 
-Note:
-- Using `cargo lambda watch` doesn't work well with the current implementation (Works fine when deployed)
+curl --location 'http://localhost:9000/lambda-url/issue-details/' \
+--header 'Content-Type: application/json' \
+--data '{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/8"}' | json_pp
+```
