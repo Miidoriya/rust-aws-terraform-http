@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "issue-details",
-    "issue-urls"
+    "issue-urls",
+    "publisher-comics"
 ]
 
 exclude = ["examples"]
