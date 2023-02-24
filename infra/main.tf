@@ -1,27 +1,55 @@
-module "basic_lambda_function" {
+module "issue_urls_lambda_function" {
   source = "terraform-aws-modules/lambda/aws"
 
-  function_name = "basic-lambda-function"
-  description   = "A basic lambda function"
+  function_name = "issue-urls-lambda"
+  description   = "A function to act as an API for retrieving a JSON struct of urls representing a comics available issues"
   handler       = "bootstrap"
   runtime       = "provided.al2"
   architectures = ["arm64"]
 
   create_package         = false
-  local_existing_package = "../release/index.zip"
+  local_existing_package = "../release/issue-urls.zip"
 
   timeout = 60
 
   tags = {
-    Name = "basic-lambda-function"
+    Name = "issue-urls-lambda"
   }
 }
 
-resource "aws_lambda_function_url" "test_latest" {
-  function_name      = module.basic_lambda_function.lambda_function_name
+module "issue_details_lambda_function" {
+  source = "terraform-aws-modules/lambda/aws"
+
+  function_name = "issue-details-lambda"
+  description   = "A function to act as an API for retrieving a JSON struct of comic issue details"
+  handler       = "bootstrap"
+  runtime       = "provided.al2"
+  architectures = ["arm64"]
+
+  create_package         = false
+  local_existing_package = "../release/issue-details.zip"
+
+  timeout = 60
+
+  tags = {
+    Name = "issue-details-lambda"
+  }
+}
+
+resource "aws_lambda_function_url" "issue_urls" {
+  function_name      = module.issue_urls_lambda_function.lambda_function_name
   authorization_type = "NONE"
 }
 
-output "name" {
-  value = aws_lambda_function_url.test_latest.function_url
+resource "aws_lambda_function_url" "issue_details" {
+  function_name      = module.issue_details_lambda_function.lambda_function_name
+  authorization_type = "NONE"
+}
+
+output "issue_urls_function_url" {
+  value = aws_lambda_function_url.issue_urls.function_url
+}
+
+output "issue_details_function_url" {
+  value = aws_lambda_function_url.issue_details.function_url
 }

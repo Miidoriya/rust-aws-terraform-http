@@ -1,13 +1,10 @@
-# clear release if exists
 if [ -d "release" ]; then
     rm -rf release
 fi
 
-# create the release directory
 mkdir release
-
-# build the various lambdas
 cargo lambda build --release --arm64
+#!/bin/bash
 
 # Set the target directory name pattern for lambdas
 lambda_dir_pattern="target/lambda/*"
@@ -24,8 +21,14 @@ for lambda_dir in $lambda_dir_pattern; do
         # Extract the lambda name from the directory path
         lambda_name=$(basename "$lambda_dir")
 
-        # Compress the lambda directory to a ZIP file with the same name
-        zip -r "$release_dir/$lambda_name.zip" "$lambda_dir"
+        # Change the current directory to the lambda directory
+        cd "$lambda_dir"
+
+        # Compress the lambda files to a ZIP file with the same name
+        zip -rj "$OLDPWD/$release_dir/$lambda_name.zip" .
+
+        # Change the current directory back to the previous directory
+        cd "$OLDPWD"
 
         # Print a message with the lambda name and release path
         echo "Released lambda '$lambda_name' to '$PWD/$release_dir/$lambda_name.zip'"
