@@ -1,9 +1,7 @@
-use futures::stream::{FuturesUnordered, StreamExt};
 use lambda_http::{Body, Error, Request, Response};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::task::spawn;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ComicInfo {
@@ -47,55 +45,13 @@ struct IdName {
 struct LambdaRequest {
     url: String,
 }
-const CORE_URL: &str = "https://comicbookroundup.com";
+
 const URL: &str =
     "https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/8";
 
-
 pub async fn get_comic_issue_json_response(request: Request) -> Result<Response<Body>, Error> {
     let url = parse_url_from_request(&request);
-    let res = parse_comic_issue_urls(&url).await?;
-
-    let urls = res
-        .iter()
-        .filter(|url| url.is_some())
-        .map(|url| url.as_ref().unwrap().to_string())
-        .collect::<Vec<_>>();
-
-    let mut comic_infos = Vec::with_capacity(urls.len());
-
-    // Spawn a new task for each URL to fetch the comic info in parallel
-    let tasks = FuturesUnordered::new();
-    for url in urls {
-        let task = spawn(get_comic_info(url));
-        tasks.push(task);
-    }
-
-    // Await the results of all tasks in parallel using `try_join_all`
-    let results = tasks.collect::<Vec<_>>().await;
-    for result in results {
-        match result {
-            Ok(comic_info) => {
-                if let Ok(comic_info) = comic_info { comic_infos.push(comic_info) }
-            }
-            Err(e) => println!("Error: {:?}", e),
-        }
-    }
-
-    let comic_infos = ComicInfos {
-        comic_infos: Some(comic_infos),
-    };
-    let body = serde_json::to_string(&comic_infos)?;
-    Ok(Response::builder()
-        .status(200)
-        .header("Content-Type", "application/json")
-        .body(Body::from(body))
-        .unwrap())
-}
-
-async fn get_comic_info(url: String) -> Result<ComicInfo, Error> {
-    let valid_url = format!("{}{}", CORE_URL, url);
-    let response = get_response(&valid_url).await?;
+    let response = get_response(&url).await?;
     let id_name = parse_name(&response).unwrap();
     let id = id_name.id;
     let name = id_name.name;
@@ -136,19 +92,13 @@ async fn get_comic_info(url: String) -> Result<ComicInfo, Error> {
         critic_review_score,
         user_review_score,
     };
-    Ok(comic_info)
-}
-
-async fn parse_comic_issue_urls(url: &str) -> Result<Vec<Option<String>>, reqwest::Error> {
-    let response_str = reqwest::get(url).await?.text().await?;
-    let html_resp = scraper::Html::parse_document(&response_str);
-    let id_selector =
-        scraper::Selector::parse("div.section > table > tbody > tr > td.issue > a").unwrap();
-    let urls = html_resp
-        .select(&id_selector)
-        .map(|e| e.value().attr("href").map(str::to_owned))
-        .collect();
-    Ok(urls)
+    let body = serde_json::to_string(&comic_info)?;
+    let resp = Response::builder()
+        .status(200)
+        .header("content-type", "application/json")
+        .body(Body::from(body))
+        .map_err(Box::new)?;
+    Ok(resp)
 }
 
 pub fn parse_url_from_request(request: &Request) -> String {
@@ -166,7 +116,6 @@ pub fn parse_url_from_request(request: &Request) -> String {
 }
 
 async fn get_response(url: &str) -> Result<String, reqwest::Error> {
-    println!("url: {}", url);
     let response = reqwest::get(url).await?.text().await?;
     Ok(response)
 }
@@ -190,7 +139,6 @@ fn parse_name(response: &str) -> Result<IdName, scraper::error::SelectorErrorKin
             .to_string()
     });
     let id_name = IdName { id, name };
-    println!("id_name: {:?}", id_name);
     Ok(id_name)
 }
 

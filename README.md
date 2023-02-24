@@ -20,12 +20,17 @@ Run ./deploy-to-tf.sh to:
 Local deployment and running:
 - run `cargo lambda watch`
 - curl locally or visit the endpoint via your choice of browser:
+
 ```
-curl --location 'http://localhost:9000/lambda-url/http-lambda/' \
+curl --location 'http://localhost:9000/lambda-url/issue-urls/' \
 --header 'Content-Type: application/json' \
---data '{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/1"}' | json_pp
+--data '{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)"}' | json_pp
+
+curl --location 'http://localhost:9000/lambda-url/issue-details/' \
+--header 'Content-Type: application/json' \
+--data '{"url":"https://comicbookroundup.com/comic-books/reviews/marvel-comics/immortal-x-men-(2022)/8"}' | json_pp
+
+curl --location 'http://localhost:9000/lambda-url/publisher-comics/' \
+--header 'Content-Type: application/json' \
+--data '{"name":"marvel"}' | json_pp
 ```
-
-
-Note:
-- Using `cargo lambda watch` doesn't work well with the current implementation (Works fine when deployed)
