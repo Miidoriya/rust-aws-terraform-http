@@ -14,7 +14,7 @@ async fn function_handler(event: Request) -> Result<Response<Body>, Error> {
 
     let resp = Response::builder()
         .status(200)
-        .header("content-type", "text/html")
+        .header("content-type", "application/json")
         .body(Body::from(resp_json))
         .map_err(Box::new)?;
     Ok(resp)
